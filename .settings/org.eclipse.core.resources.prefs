@@ -1,0 +1,9 @@
+eclipse.preferences.version=1
+encoding//MsgHandle/RecvCgroupSignAndParam.py=utf-8
+encoding//MsgHandle/RecvFilename.py=utf-8
+encoding//MsgHandle/RecvObtainFile.py=utf-8
+encoding//MsgHandle/SendAgroupSignAndParam.py=UTF-8
+encoding//MsgHandle/SendFileBuffer.py=utf-8
+encoding//NetCommunication/NetConnect.py=UTF-8
+encoding//View/DataHandleProcessDialog.py=utf-8
+encoding//View/SamplingProcessDialog.py=utf-8

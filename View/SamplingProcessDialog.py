@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import wx
+
+'''
+    Function:绘图
+    Input：NONE
+    Output: NONE
+    author: socrates
+    blog:http://www.cnblogs.com/dyx1024/
+    date:2012-07-22
+'''  
+import time
+import thread 
+ 
+def Sampling(path,frame):  
+    from VideoSampling import ExecuteFfmpeg 
+    _efm = ExecuteFfmpeg.ExecuteFfmpeg(path)
+    _efm.Run()
+    _efm.WaitForProcess()
+    frame.frame.getFrameNum()
+    frame.Destroy()
+    thread.exit_thread()  
+     
+class SamplingProcessDialog(wx.Dialog):
+    def __init__(self,path,frame):
+        wx.Dialog.__init__(self, None, -1, '正在采样中...',size = (400,150))
+        panel = wx.Panel(self, -1)
+        panel.SetBackgroundColour("white")
+        self.count = 0
+        self.gauge = wx.Gauge(panel, -1, 20, (100, 60), (250, 25), style = wx.GA_PROGRESSBAR)
+        self.gauge.SetBezelFace(3)
+        self.gauge.SetShadowWidth(3)
+        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        
+        self.path = path
+        self.frame = frame
+        
+             
+    def OnIdle(self, event):
+        self.count = self.count + 1
+        if self.count >= 20:
+            self.count = 0
+        self.gauge.SetValue(self.count)
+        time.sleep(0.1)
+    
+    def Run(self):
+        self.Center()
+        self.Show()
+        
+        thread.start_new_thread(Sampling, (self.path,self))
+     

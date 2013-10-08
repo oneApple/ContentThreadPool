@@ -1,0 +1,1 @@
+-vcodec mpeg2video -acodec copy -b 2500 -qscale 4 -y out.ts
