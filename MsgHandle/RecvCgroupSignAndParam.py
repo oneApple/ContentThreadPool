@@ -14,38 +14,38 @@ class RecvCgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         _cfg = ConfigData.ConfigData()
         self.__mediapath = _cfg.GetMediaPath()
     
-    def getBgroupSignAndParam(self,session):
+    def getBgroupSignAndParam(self,fddata):
         "从数据库查询获取b组参数和hash值"
         _db = MediaTable.MediaTable()
         _db.Connect()
-        _res = _db.searchMedia(session.GetData("filename"))
+        _res = _db.searchMedia(fddata.GetData("filename"))
         self.__bparam = _res[0][3]
         self.__bhash = _res[0][4]
         _db.CloseCon()
         
-    def handleDhkeyAndCgroupParam(self,msglist,session):
+    def handleDhkeyAndCgroupParam(self,msglist,fddata):
         "验证接收到的会话密钥是否相同，如果相同则获取C组参数和hash"
         _cfd = ConfigData.ConfigData()
         _rsa = Rsa.Rsa(_cfd.GetKeyPath())
         _plaintext = _rsa.DecryptByPrikey(msglist[0])
         _plist = NetSocketFun.NetUnPackMsgBody(_plaintext)
-        if session.GetData("sessionkey") == _plist[0]:
+        if fddata.GetData("fddatakey") == _plist[0]:
             self.__cparam = _plist[1:]
             self.__csign = msglist[1]
             self.__chash = msglist[2]
             return True
         else:
-            showmsg = "会话密钥验证失败：会话密钥：" + session.GetData("sessionkey")
+            showmsg = "会话密钥验证失败：会话密钥：" + fddata.GetData("fddatakey")
             self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg,True)
             return False
     
-    def verifySignleSign(self,sampling,sign,session):
+    def verifySignleSign(self,sampling,sign,fddata):
         "验证C组采样是否符合收到的C组签名"
         _cfd = ConfigData.ConfigData()
         _rsa = Rsa.Rsa(_cfd.GetKeyPath())
         
         _hbs = HashBySha1.HashBySha1()
-        return _rsa.VerifyByPubkey(_hbs.GetHash(sampling.encode("ascii"),MagicNum.HashBySha1c.HEXADECIMAL), sign, session.GetData("peername"))
+        return _rsa.VerifyByPubkey(_hbs.GetHash(sampling.encode("ascii"),MagicNum.HashBySha1c.HEXADECIMAL), sign, fddata.GetData("peername"))
     
     def getFrameNum(self,filename):
         "获取目录下文件数即帧的数目"
@@ -55,21 +55,21 @@ class RecvCgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         _framenum = sum([len(files) for root,dirs,files in os.walk(_dirname)])
         return str(_framenum)
     
-    def verifySign(self,session):
+    def verifySign(self,fddata):
         import string
         _hashlist = []
         _bparam = NetSocketFun.NetUnPackMsgBody(self.__bparam)
         
         showmsg = "正在采样 ..."
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg)
-        _meidaPath = self.__mediapath + "/" + session.GetData("peername") + "/" + session.GetData("filename")
+        _meidaPath = self.__mediapath + "/" + fddata.GetData("peername") + "/" + fddata.GetData("filename")
         _efm = ExecuteFfmpeg.ExecuteFfmpeg(_meidaPath)
         _efm.Run()
         _efm.WaitForProcess()
         
         import os
         filesize = float(os.path.getsize(_meidaPath)) / (1024 * 1024)
-        showmsg = "采样完成:\n(1)总帧数：" + self.getFrameNum(session.GetData("filename")) + \
+        showmsg = "采样完成:\n(1)总帧数：" + self.getFrameNum(fddata.GetData("filename")) + \
                   "\n(2)文件大小（MB）：" + str(filesize)
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg,True)
         
@@ -78,12 +78,12 @@ class RecvCgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
             _argum = [string.atoi(s) for s in _param[:3]]
             _argum += [string.atof(s) for s in _param[3:]]
             self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg[len(_hashlist)],True)
-            _hashlist.append(self.computeSingleSampling(session, _argum))
+            _hashlist.append(self.computeSingleSampling(fddata, _argum))
             
             
-        self.deltempFile(session)
+        self.deltempFile(fddata)
         
-        if not self.verifySignleSign(_hashlist[1], self.__csign, session):
+        if not self.verifySignleSign(_hashlist[1], self.__csign, fddata):
             self.compareSamplingHash(_hashlist[1],self.__chash)
             showmsg = "签名验证失败,该文件在传输过程中被篡改"
             self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg)
@@ -102,8 +102,8 @@ class RecvCgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
             self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg)
             return True
     
-    def computeSingleSampling(self,session,param):
-        _filename = session.GetData("filename")[:session.GetData("filename").index(".")]
+    def computeSingleSampling(self,fddata,param):
+        _filename = fddata.GetData("filename")[:fddata.GetData("filename").index(".")]
         _gvs = GetVideoSampling.GetVideoSampling(_filename,*param)
         
         return NetSocketFun.NetPackMsgBody(_gvs.GetSampling())
@@ -141,45 +141,46 @@ class RecvCgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
             showmsg += "\n第" + str(_dif) + "组存在篡改，篡改帧区间为：" + str(_groupborder[_dif]) + "-" + str(_groupborder[_dif + 1]) +"帧"
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg)
     
-    def deltempFile(self,session):
+    def deltempFile(self,fddata):
         import os
         _cfg = ConfigData.ConfigData()
         _mediapath = _cfg.GetYVectorFilePath()
         _media = _mediapath + "out.ts" 
         os.remove(_media)
-        _dir = _mediapath + session.GetData("filename")[:session.GetData("filename").index(".")]
+        _dir = _mediapath + fddata.GetData("filename")[:fddata.GetData("filename").index(".")]
         for root, dirs, files in os.walk(_dir, topdown=False):
             for name in files:
                 os.remove(os.path.join(root, name))
             os.rmdir(root)  
     
-    def HandleMsg(self,bufsize,session):
-        recvbuffer = NetSocketFun.NetSocketRecv(session.GetData("sockfd"),bufsize)
+    def HandleMsg(self,bufsize,fddata,th):
+        recvbuffer = NetSocketFun.NetSocketRecv(fddata.GetData("sockfd"),bufsize)
         _msglist = NetSocketFun.NetUnPackMsgBody(recvbuffer)
-        if self.handleDhkeyAndCgroupParam(_msglist, session) == True:
+        if self.handleDhkeyAndCgroupParam(_msglist, fddata) == True:
             try:
-                self.getBgroupSignAndParam(session)
+                self.getBgroupSignAndParam(fddata)
             except:
                 import wx
                 wx.MessageBox("该文件不存在","错误",wx.ICON_ERROR|wx.YES_DEFAULT)
                 return
-            if self.verifySign(session) == True:
+            if self.verifySign(fddata) == True:
                 showmsg = "收到采样结果:\n(1)B组参数：" + ",".join(self.__bparam.split(CommonData.MsgHandlec.PADDING)) + "\n(2)B组采样签名：" + _msglist[1]
                 showmsg += "\n(3)C组参数：" + ",".join(self.__cparam) + "\n(4)C组采样签名：" + self.__csign + "\n审核返回成功"
                 self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT,showmsg,True)
                 msghead = self.packetMsg(MagicNum.MsgTypec.AUDITRETURNSUCCESS,0)
-                NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead)
-                
+                fddata.SetData("outdata",msghead)
+                th.ModifyInToOut(fddata.GetData("sockfd"))
                 
                 _db = MediaTable.MediaTable()
                 _db.Connect()
-                _db.AlterMedia("status", MagicNum.MediaTablec.AUDIT,session.GetData("filename"))
+                _db.AlterMedia("status", MagicNum.MediaTablec.AUDIT,fddata.GetData("filename"))
                 _db.CloseCon()
                 self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_REFRESHFILETABLE,"")
                 return
             
         msghead = self.packetMsg(MagicNum.MsgTypec.IDENTITYVERIFYFAILED,0)
-        NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead)
+        fddata.SetData("outdata",msghead)
+        th.ModifyInToOut(fddata.GetData("sockfd"))
         
 if __name__ == "__main__":
     pass

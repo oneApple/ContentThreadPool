@@ -9,7 +9,7 @@ class IdentifyVerifyFailed(MsgHandleInterface.MsgHandleInterface,object):
     def __init__(self):
         super(IdentifyVerifyFailed,self).__init__() 
     
-    def HandleMsg(self,bufsize,session):
+    def HandleMsg(self,bufsize,fddata,th):
         "关闭线程"
         showmsg = "对方关闭连接，此次会话结束"
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg,True)

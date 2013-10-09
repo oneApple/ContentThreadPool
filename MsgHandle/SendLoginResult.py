@@ -18,19 +18,21 @@ class SendLoginResult(MsgHandleInterface.MsgHandleInterface,object):
         _db.CloseCon()
         return _res
     
-    def HandleMsg(self,bufsize,session):
+    def HandleMsg(self,bufsize,fddata,th):
         "返回登录结果，并保存用户名"
-        recvmsg = NetSocketFun.NetSocketRecv(session.GetData("sockfd"),bufsize)
+        recvmsg = NetSocketFun.NetSocketRecv(fddata.GetData("sockfd"),bufsize)
         _loginmsg = NetSocketFun.NetUnPackMsgBody(eval(recvmsg))[0]
         _res = self.verifyUser(_loginmsg[0], _loginmsg[1])
         if  _res != False:
             msgbody = NetSocketFun.NetPackMsgBody([str(_res)])
             msghead = self.packetMsg(MagicNum.MsgTypec.LOGINSUCCESS,len(msgbody))
-            NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead + msgbody)
-            session.SetData("peername", _loginmsg[0])
-            showmsg = session.GetData("peername") + "登录成功"
+            fddata.SetData("outdata",msghead + msgbody)
+            th.ModifyInToOut(fddata.GetData("sockfd"))
+            fddata.SetData("peername", _loginmsg[0])
+            showmsg = fddata.GetData("peername") + "登录成功"
         else:
             msghead = self.packetMsg(MagicNum.MsgTypec.LOGINFAIL,0)
-            NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead)
-            showmsg = session.GetData("peername") + "登录失败"
+            fddata.SetData("outdata",msghead)
+            th.ModifyInToOut(fddata.GetData("sockfd"))
+            showmsg = fddata.GetData("peername") + "登录失败"
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT, showmsg,True)

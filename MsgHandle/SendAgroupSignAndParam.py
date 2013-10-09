@@ -14,22 +14,22 @@ class SendAgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         _cfg = ConfigData.ConfigData()
         self.__mediapath = _cfg.GetMediaPath()
     
-    def APgetAgroupHashAndParam(self,session):
+    def APgetAgroupHashAndParam(self,fddata):
         "得到数据库中存放的A组参数和hash"
         _db = MediaTable.MediaTable()
         _db.Connect()
-        _dir = session.GetData("filename")
+        _dir = fddata.GetData("filename")
         _filename =  _dir[-_dir[::-1].index("/"):]
         _res = _db.searchMedia(_filename)
         return NetSocketFun.NetUnPackMsgBody(_res[0][1]), _res[0][2]
     
-    def deltempFile(self,session):
+    def deltempFile(self,fddata):
         import os
         _cfg = ConfigData.ConfigData()
         _mediapath = _cfg.GetYVectorFilePath()
         _media = _mediapath + "out.ts" 
         os.remove(_media)
-        _dir = _mediapath + session.GetData("filename")[:session.GetData("filename").index(".")]
+        _dir = _mediapath + fddata.GetData("filename")[:fddata.GetData("filename").index(".")]
         for root, dirs, files in os.walk(_dir, topdown=False):
             for name in files:
                 os.remove(os.path.join(root, name))
@@ -43,11 +43,11 @@ class SendAgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         _framenum = sum([len(files) for root,dirs,files in os.walk(_dirname)])
         return str(_framenum)
     
-    def NOgetAgroupHashAndParam(self,session):
+    def NOgetAgroupHashAndParam(self,fddata):
         "得到数据库中存放的A组参数和hash"
         _db = MediaTable.MediaTable()
         _db.Connect()
-        _dir = session.GetData("filename")
+        _dir = fddata.GetData("filename")
         _filename =  _dir[-_dir[::-1].index("/"):]
         _res = _db.searchMedia(_filename)
         
@@ -76,19 +76,19 @@ class SendAgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         except:
             return NetSocketFun.NetUnPackMsgBody(_res[0][1]),""
     
-    def packMsgBody(self,session):
+    def packMsgBody(self,fddata):
         "将会话密钥与A组参数用公钥加密，将采样hash用私钥加密（签名）"
-        if session.GetData("threadtype") == CommonData.ThreadType.CONNECTAP:
-            _agroup = self.APgetAgroupHashAndParam(session)
-        elif session.GetData("threadtype") == CommonData.ThreadType.ACCETPNO:
-            _agroup = self.NOgetAgroupHashAndParam(session)
-            self.deltempFile(session)
+        if fddata.GetData("threadtype") == CommonData.ThreadType.CONNECTAP:
+            _agroup = self.APgetAgroupHashAndParam(fddata)
+        elif fddata.GetData("threadtype") == CommonData.ThreadType.ACCETPNO:
+            _agroup = self.NOgetAgroupHashAndParam(fddata)
+            self.deltempFile(fddata)
                       
         _cfd = ConfigData.ConfigData()
         _rsa = Rsa.Rsa(_cfd.GetKeyPath())
-        msglist = (str(session.GetData("sessionkey")),) + _agroup[0]
+        msglist = (str(fddata.GetData("fddatakey")),) + _agroup[0]
         _plaintext = NetSocketFun.NetPackMsgBody(msglist)
-        _pubkeyMsg = _rsa.EncryptByPubkey(_plaintext.encode("ascii"), session.GetData("peername"))
+        _pubkeyMsg = _rsa.EncryptByPubkey(_plaintext.encode("ascii"), fddata.GetData("peername"))
         
         _hbs = HashBySha1.HashBySha1()
         _sign = _rsa.SignByPrikey(_hbs.GetHash(_agroup[1].encode("ascii"),MagicNum.HashBySha1c.HEXADECIMAL))
@@ -105,10 +105,11 @@ class SendAgroupSignAndParam(MsgHandleInterface.MsgHandleInterface,object):
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT,showmsg,True)
         return _msgbody
     
-    def HandleMsg(self,bufsize,session):
-        msgbody = self.packMsgBody(session)
+    def HandleMsg(self,bufsize,fddata,th):
+        msgbody = self.packMsgBody(fddata)
         msghead = self.packetMsg(MagicNum.MsgTypec.SENDAGROUP,len(msgbody))
-        NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead + msgbody)
+        fddata.SetData("outdata",msghead + msgbody)
+        th.ModifyInToOut(fddata.GetData("sockfd"))
         
 if __name__ == "__main__":
     pass    

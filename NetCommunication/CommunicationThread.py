@@ -13,7 +13,14 @@ class CommunicationThread(threading.Thread):
     def __init__(self):
         super(CommunicationThread,self).__init__()
         self.runflag = True
-        
+    
+    def ModifyInToOut(self,fd):
+        self.__class__.epManage.epfd.modify(fd, select.EPOLLOUT | select.EPOLLET)
+    
+    def SendData(self,fd,outdata):
+        NetSocketFun.NetSocketSend(fd, outdata)
+        self.__class__.epManage.epfd.modify(fd, select.EPOLLIN | select.EPOLLET)
+    
     def run(self):
         while self.runflag:
             epoll_list = self.__class__.epManage.epfd.poll()
@@ -36,16 +43,30 @@ class CommunicationThread(threading.Thread):
                             break
                         recvmsghead = struct.unpack(CommonData.MsgHandlec.MSGHEADTYPE,recvbuffer)
                         print fd,recvmsghead
-                        _MsgHandleMap.getMsgHandle(recvmsghead[0]).HandleMsg(recvmsghead[1],fddata)
+                        _MsgHandleMap.getMsgHandle(recvmsghead[0]).HandleMsg(recvmsghead[1],fddata,self)
                     except socket.error, msg:
-                        print "error",msg
                         if msg.errno == errno.EAGAIN:
                             break
                         else:
                             self.__class__.epManage.DelSockfd(fd)
-                            break        
+                            break   
+                elif select.EPOLLOUT & events:
+                    try:
+                        fddata = self.__class__.epManage.GetSockData(fd)
+                        if not fddata:
+                            break
+                        self.SendData(fddata.GetData("sockfd"), fddata.GetData("outdata"))
+                    except socket.error, msg:
+                        if msg.errno == errno.EAGAIN:
+                            break
+                        else:
+                            self.__class__.epManage.DelSockfd(fd)
+                            break   
+                           
                 elif select.EPOLLHUP & events:
-                    self.__class__.epManage.DelSockfd(fd)        
+                    self.__class__.epManage.DelSockfd(fd)
+                       
+        print "thread end"
             
     def stop(self):
         self.runflag = False

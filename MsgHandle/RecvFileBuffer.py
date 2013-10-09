@@ -11,12 +11,13 @@ class RecvFileBuffer(MsgHandleInterface.MsgHandleInterface,object):
     def __init__(self):
         super(RecvFileBuffer,self).__init__() 
         
-    def HandleMsg(self,bufsize,session):
-        if not session.GetData("currentbytes"):
-            self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT,"开始接收文件(" + session.GetData("filename") + ")")
-        recvmsg = NetSocketFun.NetSocketRecv(session.GetData("sockfd"),bufsize)
+    def HandleMsg(self,bufsize,fddata,th):
+        if not fddata.GetData("currentbytes"):
+            self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT,"开始接收文件(" + fddata.GetData("filename") + ")")
+        recvmsg = NetSocketFun.NetSocketRecv(fddata.GetData("sockfd"),bufsize)
         recvbuffer = NetSocketFun.NetUnPackMsgBody(recvmsg)[0]
-        session.SetData("currentbytes",session.GetData("currentbytes") + len(recvbuffer)) 
-        session.GetData("file").write(recvbuffer)
+        fddata.SetData("currentbytes",fddata.GetData("currentbytes") + len(recvbuffer)) 
+        fddata.GetData("file").write(recvbuffer)
         msghead = self.packetMsg(MagicNum.MsgTypec.REQFILEBUFFER, 0)
-        NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead)
+        fddata.SetData("outdata",msghead)
+        th.ModifyInToOut(fddata.GetData("sockfd"))

@@ -18,9 +18,10 @@ class RecvDhGenerateSuccess(MsgHandleInterface.MsgHandleInterface,object):
         _db.CloseCon()
         return _res[0][2]
     
-    def HandleMsg(self,bufsize,session):
-        _permission = self.getUserPermission(session.GetData("peername"))
+    def HandleMsg(self,bufsize,fddata,th):
+        _permission = self.getUserPermission(fddata.GetData("peername"))
         msgbody = NetSocketFun.NetPackMsgBody([str(_permission)])
         msghead = self.packetMsg(MagicNum.MsgTypec.LOGINSUCCESS,len(msgbody))
-        NetSocketFun.NetSocketSend(session.GetData("sockfd"),msghead + msgbody)
+        fddata.SetData("outdata",msghead + msgbody)
+th.ModifyInToOut(fddata.GetData("sockfd"))
         

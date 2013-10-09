@@ -12,6 +12,7 @@ class GlobalDataValue(object):
         self.currentbytes = 0
         self.peername = ""
         self.filename = ""
+        self.outdata = ""
  
     def GetData(self,attr):
         self.__rwlock.acquire_read()
@@ -47,7 +48,6 @@ class GlobalDataManage(object):
             GlobalDataManage.gRwlock.release_write()
     
     def DelData(self,sockfdno):
-        print "dele",sockfdno
         GlobalDataManage.gRwlock.acquire_write()
         try:
             if sockfdno in self.__socketMap:
@@ -69,7 +69,6 @@ class GlobalDataManage(object):
         GlobalDataManage.gRwlock.acquire_read()
         try:
             for key in self.__socketMap:
-                self.__socketMap[key].GetData("sockfd").close()
                 yield self.__socketMap[key].GetData("sockfd")
             self.__socketMap.clear()
         finally:
@@ -92,7 +91,6 @@ class EsocketManage(object):
         self.registerListen()
     
     def registerListen(self):
-        print "register listen"
         self.listenfd = socket.socket()
         self.listenfd.setsockopt( socket.SOL_SOCKET, socket.SO_REUSEADDR, 1 )
         config = ConfigData.ConfigData()
@@ -105,11 +103,12 @@ class EsocketManage(object):
             return MagicNum.NetAcceptc.BINDERROR
         self.listenfd.listen(MagicNum.NetAcceptc.MAXLISTENNUM)
         self.listenfd.setblocking(0)
-        self.epfd.register(self.listenfd.fileno(),select.EPOLLIN)
+        self.epfd.register(self.listenfd.fileno(),select.EPOLLIN | select.EPOLLET)
     
     def AddNewSockfd(self,sockfd,threadtype):
         if self._gm.AddData(sockfd,threadtype):
             self.epfd.register(sockfd.fileno(),select.EPOLLIN | select.EPOLLET)
+            
         
         
     def DelSockfd(self,sockfdno):
@@ -118,8 +117,8 @@ class EsocketManage(object):
 
     def ReleaseAllData(self):
         for sockfd in self._gm.ReleaseAllData():
-            print "release",sockfd.fileno()
-            self.epfd.unregister(sockfd.fileno())
+            self.epfd.modify(sockfd, select.EPOLLOUT)
+            #self.epfd.unregister(sockfd.fileno())
         self.epfd.close()
 #    def SetSockData(self,sockfd,attr,value):
 #        self._gm.ModData(sockfd.fileno(), attr, value)

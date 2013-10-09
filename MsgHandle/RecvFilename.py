@@ -10,7 +10,7 @@ class RecvFilename(MsgHandleInterface.MsgHandleInterface,object):
         _cfg = ConfigData.ConfigData()
         self.__mediapath = _cfg.GetMediaPath()
     
-    def createMediaDir(self,session):
+    def createMediaDir(self,fddata):
         "创建媒体存放目录"
         import os 
         self.___ownPath = self.__mediapath + "/" + "auditserver"
@@ -19,22 +19,22 @@ class RecvFilename(MsgHandleInterface.MsgHandleInterface,object):
                 os.mkdir(self.__mediapath)
             os.mkdir(self.___ownPath)
     
-    def HandleMsg(self,bufsize,session):
+    def HandleMsg(self,bufsize,fddata,th):
         "接收文件名，并打开文件准备写"
-        recvbuffer = NetSocketFun.NetSocketRecv(session.GetData("sockfd"),bufsize)
-        self.createMediaDir(session)
-        session.SetData("filename",NetSocketFun.NetUnPackMsgBody(recvbuffer)[0])
-        session.SetData("filename",session.GetData("filename").encode("utf-8"))
-        session.SetData("threadtype",CommonData.ThreadType.ACCEPTAP)
+        recvbuffer = NetSocketFun.NetSocketRecv(fddata.GetData("sockfd"),bufsize)
+        self.createMediaDir(fddata)
+        fddata.SetData("filename",NetSocketFun.NetUnPackMsgBody(recvbuffer)[0])
+        fddata.SetData("filename",fddata.GetData("filename").encode("utf-8"))
+        fddata.SetData("threadtype",CommonData.ThreadType.ACCEPTAP)
         
-        _localfilename = self.___ownPath + "/" + session.GetData("filename")
-        session.file = open(_localfilename,"w")
-        session.SetData("currentbytes",0)
+        _localfilename = self.___ownPath + "/" + fddata.GetData("filename")
+        fddata.file = open(_localfilename,"w")
+        fddata.SetData("currentbytes",0)
     
-        showmsg = "开始审核返回文件(" + session.GetData("filename") + ")"
+        showmsg = "开始审核返回文件(" + fddata.GetData("filename") + ")"
         self.sendViewMsg(CommonData.ViewPublisherc.MAINFRAME_APPENDTEXT,showmsg,True)
         
         import SendDhPAndPubkey
         _sdh = SendDhPAndPubkey.SendDhPAndPubkey()
-        _sdh.HandleMsg(0, session)
+        _sdh.HandleMsg(0, fddata,th)
         

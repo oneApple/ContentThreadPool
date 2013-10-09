@@ -20,9 +20,9 @@ class MsgHandleInterface:
         "对信息头打包"
         return struct.pack(CommonData.MsgHandlec.MSGHEADTYPE,msgtype,msgbodysize)
     
-    def HandleMsg(self,recvsize,session):
+    def HandleMsg(self,recvsize,fddata,th):
         "处理接受到的信息"
-        sockfd = session.GetData("sockfd")
+        sockfd = fddata.GetData("sockfd")
         while True:
             recvmsg = sockfd.recv(NetSocketFun.NetSocketBufferSize)
             print "odd",sockfd.fileno(),recvmsg

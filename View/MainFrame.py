@@ -51,15 +51,16 @@ class MyFrame(wx.Frame):
             
         
     def OnCloseWindow(self,evt):
-        self.Destroy()
         try:
             self.netconnect.StopNetConnect()
 #            self.__netaccept.stopNetConnect()
         except Exception,e:
             print e
+        self.Destroy()
         import sys
-        print "sys.exit"
         sys.exit()
+        print "end"
+        
     
     def createPanel(self, outpanel, color="mistyrose"):
         _panel = wx.Panel(outpanel, -1)

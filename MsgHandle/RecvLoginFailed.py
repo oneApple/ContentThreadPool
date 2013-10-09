@@ -10,5 +10,5 @@ class RecvLoginFailed(MsgHandleInterface.MsgHandleInterface,object):
     def __init__(self):
         super(RecvLoginFailed,self).__init__()
     
-    def HandleMsg(self,bufsize,session):
+    def HandleMsg(self,bufsize,fddata,th):
         wx.CallAfter(Publisher().sendMessage,CommonData.ViewPublisherc.LOGIN_TRYAGAIN,"用户名或密码错误",True)
